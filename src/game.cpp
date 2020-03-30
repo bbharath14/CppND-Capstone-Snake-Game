@@ -25,10 +25,10 @@ void Game::Run(Controller const &controller, Renderer &renderer,
     // Input, Update, Render - the main game loop.
     controller.HandleInput(running, snake);
     Update();
-    renderer.Render(snake, food);
+    renderer.Render(snake, food, life, double_food);
 
     frame_end = SDL_GetTicks();
-
+    
     // Keep track of how long each loop through the input/update/render cycle
     // takes.
     frame_count++;
@@ -36,7 +36,7 @@ void Game::Run(Controller const &controller, Renderer &renderer,
 
     // After every second, update the window title.
     if (frame_end - title_timestamp >= 1000) {
-      renderer.UpdateWindowTitle(score, frame_count);
+      renderer.UpdateWindowTitle(score, frame_count, snake.lives);
       frame_count = 0;
       title_timestamp = frame_end;
     }
@@ -53,13 +53,61 @@ void Game::Run(Controller const &controller, Renderer &renderer,
 void Game::PlaceFood() {
   int x, y;
   while (true) {
+      do{
     x = random_w(engine);
     y = random_h(engine);
+      }while(x>31 || y>31 || snake.SnakeCell(x, y));
     // Check that the location is not occupied by a snake item before placing
     // food.
     if (!snake.SnakeCell(x, y)) {
       food.x = x;
       food.y = y;
+      life.x = -1;
+      life.y = -1;
+      double_food.x = -1;
+      double_food.y = -1;
+      return;
+    }
+  }
+}
+
+void Game::PlaceLife(){
+  int x, y;
+  while (true) {
+      do{
+    x = random_w(engine);
+    y = random_h(engine);
+      }while(x>31 || y>31 || snake.SnakeCell(x, y));
+    // Check that the location is not occupied by a snake item before placing
+    // food.
+    if (!snake.SnakeCell(x, y)) {
+      life.x = x;
+      life.y = y;
+      food.x = -1;
+      food.y = -1;
+      double_food.x = -1;
+      double_food.y = -1;
+      return;
+    }
+  }
+}
+
+void Game::PlaceDoubleFood(){
+  int x, y;
+  while (true) {
+      do{
+    x = random_w(engine);
+    y = random_h(engine);
+      }while(x>31 || y>31 || snake.SnakeCell(x, y));
+    // Check that the location is not occupied by a snake item before placing
+    // food.
+    if (!snake.SnakeCell(x, y)) {
+      double_food.x = x;
+      double_food.y = y;
+      life.x = -1;
+      life.y = -1;
+      food.x = -1;
+      food.y = -1;
       return;
     }
   }
@@ -67,19 +115,37 @@ void Game::PlaceFood() {
 
 void Game::Update() {
   if (!snake.alive) return;
-
   snake.Update();
 
   int new_x = static_cast<int>(snake.head_x);
   int new_y = static_cast<int>(snake.head_y);
-
+  bool needs_update = false;
   // Check if there's food over here
   if (food.x == new_x && food.y == new_y) {
     score++;
-    PlaceFood();
-    // Grow snake and increase speed.
-    snake.GrowBody();
-    snake.speed += 0.02;
+    needs_update = true;
+  }else if(double_food.x == new_x && double_food.y == new_y){
+    score += 2;
+    needs_update = true;
+  }else if(life.x == new_x && life.y == new_y){
+      score++;
+    snake.lives += 1;
+    needs_update = true;
+  }
+  if(needs_update){
+    if(score%5==0){
+      PlaceDoubleFood();
+      // Grow snake and increase speed.
+      snake.GrowBody();
+      snake.speed += 0.02;
+    }else if(score%7==0){
+      PlaceLife();
+    }else{
+      PlaceFood();
+      // Grow snake and increase speed.
+      snake.GrowBody();
+      snake.speed += 0.02;
+    }
   }
 }
 
