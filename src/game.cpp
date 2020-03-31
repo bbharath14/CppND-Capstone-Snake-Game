@@ -1,13 +1,24 @@
 #include "game.h"
 #include <iostream>
 #include "SDL.h"
+#include <queue>
+#include <future>
 
 Game::Game(std::size_t grid_width, std::size_t grid_height)
     : snake(grid_width, grid_height),
       engine(dev()),
       random_w(0, static_cast<int>(grid_width)),
       random_h(0, static_cast<int>(grid_height)) {
-  PlaceFood();
+  queue = std::make_shared<MessageQueue<SDL_Point>>();
+  //PlaceFood();
+  reset(life);
+  reset(double_food);
+  reset(food);
+  start_thread = std::thread(&Game::PlaceFood, this);
+}
+
+Game::~Game(){
+    start_thread.join();
 }
 
 void Game::Run(Controller const &controller, Renderer &renderer,
@@ -23,6 +34,7 @@ void Game::Run(Controller const &controller, Renderer &renderer,
     frame_start = SDL_GetTicks();
 
     // Input, Update, Render - the main game loop.
+    
     controller.HandleInput(running, snake);
     Update();
     renderer.Render(snake, food, life, double_food);
@@ -50,66 +62,51 @@ void Game::Run(Controller const &controller, Renderer &renderer,
   }
 }
 
-void Game::PlaceFood() {
-  int x, y;
-  while (true) {
-      do{
-    x = random_w(engine);
-    y = random_h(engine);
-      }while(x>31 || y>31 || snake.SnakeCell(x, y));
-    // Check that the location is not occupied by a snake item before placing
-    // food.
-    if (!snake.SnakeCell(x, y)) {
-      food.x = x;
-      food.y = y;
-      life.x = -1;
-      life.y = -1;
-      double_food.x = -1;
-      double_food.y = -1;
-      return;
-    }
-  }
+template <typename T>
+T MessageQueue<T>::receive()
+{
+        std::unique_lock<std::mutex> uLock(_mutex);
+        _cond.wait(uLock, [this] { return !_messages.empty(); }); // pass unique lock to condition variable
+
+        // remove last vector element from queue
+         T v = std::move(_messages.back());
+        _messages.pop_back();
+
+        return v; // will not be copied due to return value optimization (RVO) in C++
 }
 
-void Game::PlaceLife(){
-  int x, y;
-  while (true) {
-      do{
-    x = random_w(engine);
-    y = random_h(engine);
-      }while(x>31 || y>31 || snake.SnakeCell(x, y));
-    // Check that the location is not occupied by a snake item before placing
-    // food.
-    if (!snake.SnakeCell(x, y)) {
-      life.x = x;
-      life.y = y;
-      food.x = -1;
-      food.y = -1;
-      double_food.x = -1;
-      double_food.y = -1;
-      return;
-    }
-  }
+template <typename T>
+void MessageQueue<T>::send(T &&msg)
+{
+        // perform vector modification under the lock
+        std::lock_guard<std::mutex> uLock(_mutex);
+
+        // add vector to queue
+        _messages.push_back(std::move(msg));
+        _cond.notify_one(); // notify client after pushing new Vehicle into vector
 }
 
-void Game::PlaceDoubleFood(){
+template <typename T>
+bool MessageQueue<T>::isEmpty(){
+    return _messages.empty();
+}
+
+SDL_Point Game::PlaceFood() {
   int x, y;
   while (true) {
-      do{
-    x = random_w(engine);
-    y = random_h(engine);
-      }while(x>31 || y>31 || snake.SnakeCell(x, y));
-    // Check that the location is not occupied by a snake item before placing
-    // food.
-    if (!snake.SnakeCell(x, y)) {
-      double_food.x = x;
-      double_food.y = y;
-      life.x = -1;
-      life.y = -1;
-      food.x = -1;
-      food.y = -1;
-      return;
-    }
+      while (queue->isEmpty()) {
+          do{
+        x = random_w(engine);
+        y = random_h(engine);
+          }while(x>31 || y>31 || snake.SnakeCell(x, y));
+        // Check that the location is not occupied by a snake item before placing
+        // food.
+        if (!snake.SnakeCell(x, y)) {
+          food.x = x;
+          food.y = y;
+        }
+        std::async(std::launch::async, &MessageQueue<SDL_Point>::send, queue, std::move(food));
+      }
   }
 }
 
@@ -134,14 +131,20 @@ void Game::Update() {
   }
   if(needs_update){
     if(score%5==0){
-      PlaceDoubleFood();
+      double_food = queue->receive();
+      reset(food);
+      reset(life);
       // Grow snake and increase speed.
       snake.GrowBody();
       snake.speed += 0.02;
     }else if(score%7==0){
-      PlaceLife();
+      life = queue->receive();
+      reset(food);
+      reset(double_food);
     }else{
-      PlaceFood();
+      food = queue->receive();
+      reset(double_food);
+      reset(life);
       // Grow snake and increase speed.
       snake.GrowBody();
       snake.speed += 0.02;
@@ -151,3 +154,8 @@ void Game::Update() {
 
 int Game::GetScore() const { return score; }
 int Game::GetSize() const { return snake.size; }
+
+void Game::reset(SDL_Point &point){
+    point.x = -100;
+    point.y = -100;
+}
