@@ -25,6 +25,10 @@ class Game {
  public:
   Game(std::size_t grid_width, std::size_t grid_height);
   ~Game();
+  Game(const Game &chatbot);
+  Game& operator=(const Game &chatbot);
+  Game(Game &&chatbot);
+  Game& operator=(Game &&chatbot);
   void Run(Controller const &controller, Renderer &renderer,
            std::size_t target_frame_duration);
   int GetScore() const;

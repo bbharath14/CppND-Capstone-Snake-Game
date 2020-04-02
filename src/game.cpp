@@ -24,6 +24,31 @@ Game::~Game(){
     start_thread.join();
 }
 
+Game::Game(const Game &source): snake(source.snake){
+    std::cout << "Game Copy Constructor Called\n" ;
+}
+
+Game& Game::operator=(const Game &source){
+    std::cout << "Game Copy Assignement Operator Called\n" ;
+    if(this == &source){
+        return *this;
+    }
+    snake = source.snake;
+    return *this;
+}
+
+Game::Game(Game &&source): snake(source.snake){
+    std::cout<< "Game Move Constructor Called\n";
+}
+
+Game& Game::operator=(Game &&source){
+    std::cout<< "Game Move Assignemnt Operator Called\n";
+    if(this == &source){
+        return *this;
+    }
+    snake = source.snake;
+    return *this;
+}
 void Game::Run(Controller const &controller, Renderer &renderer,
                std::size_t target_frame_duration) {
   Uint32 title_timestamp = SDL_GetTicks();
