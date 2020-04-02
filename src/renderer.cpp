@@ -2,6 +2,7 @@
 #include <iostream>
 #include <string>
 
+//constructor
 Renderer::Renderer(const std::size_t screen_width,
                    const std::size_t screen_height,
                    const std::size_t grid_width, const std::size_t grid_height)
@@ -33,11 +34,56 @@ Renderer::Renderer(const std::size_t screen_width,
   }
 }
 
+
+
+//destroy window and quit in destructor
 Renderer::~Renderer() {
   SDL_DestroyWindow(sdl_window);
   SDL_Quit();
 }
+//copy constructor
+Renderer::Renderer(const Renderer &source) noexcept: screen_width(source.screen_width),
+screen_height(source.screen_height),
+grid_width(source.grid_width),
+grid_height(source.grid_height){
+    sdl_window = source.sdl_window;
+    sdl_renderer = source.sdl_renderer;
+    std::cout << "Renderer Copy Constructor Called\n" ;
+}
 
+//copy assignment operator
+Renderer& Renderer::operator=(const Renderer &source) noexcept{
+    std::cout << "Renderer Copy Assignement Operator Called\n" ;
+    if(this == &source){
+        return *this;
+    }
+    sdl_window = source.sdl_window;
+    sdl_renderer = source.sdl_renderer;
+    return *this;
+}
+
+//move constructor
+Renderer::Renderer(Renderer &&source): screen_width(source.screen_width),
+screen_height(source.screen_height),
+grid_width(source.grid_width),
+grid_height(source.grid_height){
+    sdl_window = source.sdl_window;
+    sdl_renderer = source.sdl_renderer;
+    std::cout<< "Renderer Move Constructor Called\n";
+}
+
+//move assignment operatior
+Renderer& Renderer::operator=(Renderer &&source){
+    std::cout<< "Renderer Move Assignemnt Operator Called\n";
+    if(this == &source){
+        return *this;
+    }
+     sdl_window = source.sdl_window;
+    sdl_renderer = source.sdl_renderer;
+    return *this;
+}
+
+//fill the screen with food and the snake
 void Renderer::Render(Snake const snake, SDL_Point const &food, SDL_Point const &life, SDL_Point const &double_food) {
   SDL_Rect block;
   block.w = screen_width / grid_width;
@@ -93,6 +139,7 @@ void Renderer::Render(Snake const snake, SDL_Point const &food, SDL_Point const 
   SDL_RenderPresent(sdl_renderer);
 }
 
+//update the title of the window based on the parameters
 void Renderer::UpdateWindowTitle(int score, int fps, int lives) {
   std::string title{"Snake Score: " + std::to_string(score) + " FPS: " + std::to_string(fps) +
     " Lives: " + std::to_string(lives)};

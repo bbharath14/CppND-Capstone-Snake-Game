@@ -10,24 +10,30 @@ Game::Game(std::size_t grid_width, std::size_t grid_height)
       random_w(0, static_cast<int>(grid_width)),
       random_h(0, static_cast<int>(grid_height)) {
   queue = std::make_shared<MessageQueue<SDL_Point>>();
-  //PlaceFood();
+  // set default values to life,double_food and food
   reset(life);
   reset(double_food);
   reset(food);
   on = true;
+  //start placing the food in a different thread
   start_thread = std::thread(&Game::PlaceFood, this);
+  //initial food
   food = queue->receive();
 }
 
+//destructor
 Game::~Game(){
+    //stop generated food and wait for thread to finish
     on = false;
     start_thread.join();
 }
 
+//copy constructor
 Game::Game(const Game &source): snake(source.snake){
     std::cout << "Game Copy Constructor Called\n" ;
 }
 
+//copy assignment operator
 Game& Game::operator=(const Game &source){
     std::cout << "Game Copy Assignement Operator Called\n" ;
     if(this == &source){
@@ -37,10 +43,12 @@ Game& Game::operator=(const Game &source){
     return *this;
 }
 
+//move constructor
 Game::Game(Game &&source): snake(source.snake){
     std::cout<< "Game Move Constructor Called\n";
 }
 
+//move assignment operatior
 Game& Game::operator=(Game &&source){
     std::cout<< "Game Move Assignemnt Operator Called\n";
     if(this == &source){
@@ -49,6 +57,8 @@ Game& Game::operator=(Game &&source){
     snake = source.snake;
     return *this;
 }
+
+//main control method which takes input, updates food,score and calls render methods
 void Game::Run(Controller const &controller, Renderer &renderer,
                std::size_t target_frame_duration) {
   Uint32 title_timestamp = SDL_GetTicks();
@@ -90,6 +100,7 @@ void Game::Run(Controller const &controller, Renderer &renderer,
   }
 }
 
+// method to get item from queue
 template <typename T>
 T MessageQueue<T>::receive()
 {
@@ -103,6 +114,7 @@ T MessageQueue<T>::receive()
         return v; // will not be copied due to return value optimization (RVO) in C++
 }
 
+//method to push item to queue
 template <typename T>
 void MessageQueue<T>::send(T &&msg)
 {
@@ -119,6 +131,7 @@ bool MessageQueue<T>::isEmpty(){
     return _messages.size()<5;
 }
 
+//returns true if point matches food/life or double_food. Returns false otherwise
 bool Game::MatchesFoodOrLife(int x, int y){
     if(food.x==x && food.y==y)
         return true;
@@ -129,6 +142,7 @@ bool Game::MatchesFoodOrLife(int x, int y){
     return false;
 }
 
+// generate random foods(max 5) and place in queue
 void Game::PlaceFood() {
   int x, y;
   while (true) {
@@ -151,6 +165,7 @@ void Game::PlaceFood() {
   }
 }
 
+//check whether food needs to be updated and update food/life/double_food based on the conditions
 void Game::Update() {
   if (!snake.alive) return;
   snake.Update();
@@ -171,6 +186,7 @@ void Game::Update() {
   }
   if(needs_update){
     SDL_Point temp, temp1;
+    // keep getting from queue until food is not in snake body and does not match existing food
     do{
       temp = queue->receive();
     }while(MatchesFoodOrLife(temp.x, temp.y) || snake.SnakeCell(temp.x, temp.y));
@@ -181,7 +197,8 @@ void Game::Update() {
     // Grow snake and increase speed.
     snake.GrowBody();
     snake.speed += 0.01;
-    if(score%11==0){
+    //generate life and double_food randomly
+    if(score%13==0){
       do{
         temp1 = queue->receive();
       }while(MatchesFoodOrLife(temp1.x, temp1.y) || snake.SnakeCell(temp1.x, temp1.y));
@@ -195,9 +212,13 @@ void Game::Update() {
   }
 }
 
+// returns the score
 int Game::GetScore() const { return score; }
+
+//returns the size
 int Game::GetSize() const { return snake.size; }
 
+//reset a SDL_point to -100,-100
 void Game::reset(SDL_Point &point){
     point.x = -100;
     point.y = -100;
