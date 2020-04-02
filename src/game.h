@@ -8,6 +8,9 @@
 #include "snake.h"
 #include <queue>
 #include <thread>
+#include <atomic>
+#include <mutex>
+#include <condition_variable>
 
 template<class T> class MessageQueue
 {
