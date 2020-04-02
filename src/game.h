@@ -44,13 +44,12 @@ class Game {
   std::shared_ptr<MessageQueue<SDL_Point>> queue;
   int score{0};
 
-  SDL_Point PlaceFood();
-  void PlaceLife();
-  void PlaceDoubleFood();
+  void PlaceFood();
   void Update();
   void reset(SDL_Point &point);
+  bool MatchesFoodOrLife(int x, int y);
   std::thread start_thread;
-  
+  std::atomic<bool> on;
 };
 
 #endif

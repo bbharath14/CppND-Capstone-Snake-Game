@@ -14,10 +14,12 @@ Game::Game(std::size_t grid_width, std::size_t grid_height)
   reset(life);
   reset(double_food);
   reset(food);
+  on = true;
   start_thread = std::thread(&Game::PlaceFood, this);
 }
 
 Game::~Game(){
+    on = false;
     start_thread.join();
 }
 
@@ -91,10 +93,20 @@ bool MessageQueue<T>::isEmpty(){
     return _messages.empty();
 }
 
-SDL_Point Game::PlaceFood() {
+bool Game::MatchesFoodOrLife(int x, int y){
+    if(food.x==x && food.y==y)
+        return true;
+    if(double_food.x ==x && double_food.y == y)
+        return true;
+    if(life.x == x && life.y == y)
+        return true;
+    return false;
+}
+
+void Game::PlaceFood() {
   int x, y;
   while (true) {
-      while (queue->isEmpty()) {
+      while (on && queue->isEmpty()) {
           do{
         x = random_w(engine);
         y = random_h(engine);
@@ -107,6 +119,9 @@ SDL_Point Game::PlaceFood() {
         }
         std::async(std::launch::async, &MessageQueue<SDL_Point>::send, queue, std::move(food));
       }
+      if(!on){
+          break;
+      }
   }
 }
 
@@ -116,38 +131,38 @@ void Game::Update() {
 
   int new_x = static_cast<int>(snake.head_x);
   int new_y = static_cast<int>(snake.head_y);
-  bool needs_update = false;
+  bool needs_update = true;
   // Check if there's food over here
   if (food.x == new_x && food.y == new_y) {
     score++;
-    needs_update = true;
   }else if(double_food.x == new_x && double_food.y == new_y){
     score += 2;
-    needs_update = true;
   }else if(life.x == new_x && life.y == new_y){
       score++;
     snake.lives += 1;
-    needs_update = true;
+  }else{
+      needs_update = false;
   }
   if(needs_update){
-    if(score%5==0){
-      double_food = queue->receive();
-      reset(food);
-      reset(life);
+    SDL_Point temp;
+    do{
+      temp = queue->receive();
+    }while(MatchesFoodOrLife(temp.x, temp.y));
+    reset(life);
+    reset(food);
+    reset(double_food);
+    if(score%11==0){
+      double_food = temp;
       // Grow snake and increase speed.
       snake.GrowBody();
-      snake.speed += 0.02;
-    }else if(score%7==0){
-      life = queue->receive();
-      reset(food);
-      reset(double_food);
+      snake.speed += 0.01;
+    }else if(score%23==0){
+        life = temp;
     }else{
-      food = queue->receive();
-      reset(double_food);
-      reset(life);
+      food = temp;
       // Grow snake and increase speed.
       snake.GrowBody();
-      snake.speed += 0.02;
+      snake.speed += 0.01;
     }
   }
 }
