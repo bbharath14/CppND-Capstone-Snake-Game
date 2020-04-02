@@ -35,6 +35,7 @@ class Game {
   SDL_Point food;
   SDL_Point life;
   SDL_Point double_food;
+  SDL_Point temp_food;
 
   std::random_device dev;
   std::mt19937 engine;

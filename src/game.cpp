@@ -16,6 +16,7 @@ Game::Game(std::size_t grid_width, std::size_t grid_height)
   reset(food);
   on = true;
   start_thread = std::thread(&Game::PlaceFood, this);
+  food = queue->receive();
 }
 
 Game::~Game(){
@@ -90,7 +91,7 @@ void MessageQueue<T>::send(T &&msg)
 
 template <typename T>
 bool MessageQueue<T>::isEmpty(){
-    return _messages.empty();
+    return _messages.size()<5;
 }
 
 bool Game::MatchesFoodOrLife(int x, int y){
@@ -114,10 +115,10 @@ void Game::PlaceFood() {
         // Check that the location is not occupied by a snake item before placing
         // food.
         if (!snake.SnakeCell(x, y)) {
-          food.x = x;
-          food.y = y;
+          temp_food.x = x;
+          temp_food.y = y;
         }
-        std::async(std::launch::async, &MessageQueue<SDL_Point>::send, queue, std::move(food));
+        std::async(std::launch::async, &MessageQueue<SDL_Point>::send, queue, std::move(temp_food));
       }
       if(!on){
           break;
@@ -144,25 +145,27 @@ void Game::Update() {
       needs_update = false;
   }
   if(needs_update){
-    SDL_Point temp;
+    SDL_Point temp, temp1;
     do{
       temp = queue->receive();
-    }while(MatchesFoodOrLife(temp.x, temp.y));
+    }while(MatchesFoodOrLife(temp.x, temp.y) || snake.SnakeCell(temp.x, temp.y));
     reset(life);
     reset(food);
     reset(double_food);
+    food = temp;
+    // Grow snake and increase speed.
+    snake.GrowBody();
+    snake.speed += 0.01;
     if(score%11==0){
-      double_food = temp;
-      // Grow snake and increase speed.
-      snake.GrowBody();
-      snake.speed += 0.01;
-    }else if(score%23==0){
-        life = temp;
-    }else{
-      food = temp;
-      // Grow snake and increase speed.
-      snake.GrowBody();
-      snake.speed += 0.01;
+      do{
+        temp1 = queue->receive();
+      }while(MatchesFoodOrLife(temp1.x, temp1.y) || snake.SnakeCell(temp1.x, temp1.y));
+      double_food = temp1;
+    }else if(score%29==0){
+        do{
+          temp1 = queue->receive();
+        }while(MatchesFoodOrLife(temp1.x, temp1.y) || snake.SnakeCell(temp1.x, temp1.y));
+        life = temp1;
     }
   }
 }
